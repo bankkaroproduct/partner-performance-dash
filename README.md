@@ -11,7 +11,7 @@ api/state.js      GET  → returns {partners, rows, batches}
 api/upload.js     POST → stores a batch of computed daily rows (dedupe by date+PID)
 api/partner.js    POST add / DELETE remove a registry entry
 api/batch.js      DELETE → remove an upload batch and all rows it added
-_lib/redis.js     tiny Upstash/Vercel-KV REST helper
+_lib/store.js     storage layer — Neon serverless Postgres (free, no card)
 ```
 
 The heavy lifting (matching each **Confirmed** card to a real click via the `click_id`
@@ -23,11 +23,16 @@ your machine.
 
 1. **Push this folder to a Git repo** (GitHub/GitLab) or run `vercel` from the Vercel CLI.
 2. In Vercel: **New Project** → import the repo. Framework preset: **Other**. Deploy.
-3. Add a free Redis store (this is the shared storage):
-   - Vercel dashboard → your project → **Storage** → **Create** → **Upstash Redis** (free tier).
-   - Connecting it auto-adds the env vars `KV_REST_API_URL` and `KV_REST_API_TOKEN`
-     (Upstash may name them `UPSTASH_REDIS_REST_URL` / `..._TOKEN` — the code accepts both).
-4. **Redeploy** (Deployments → ⋯ → Redeploy) so the functions pick up the env vars.
+3. Add a **free Neon Postgres** database (this is the shared storage — free tier, no credit card):
+   - **Easiest:** Vercel dashboard → your project → **Storage** → **Create Database** → **Neon (Postgres)** →
+     **Connect** to this project. Vercel auto-adds `DATABASE_URL` / `POSTGRES_URL`.
+   - **Or manually:** sign up at **https://neon.tech** (free, no card) → create a project →
+     copy the connection string → in Vercel **Settings → Environment Variables** add
+     `DATABASE_URL` = that string.
+   - The code accepts any of: `DATABASE_URL`, `POSTGRES_URL`, `NEON_DATABASE_URL`,
+     `POSTGRES_PRISMA_URL`, `DATABASE_URL_UNPOOLED`, `POSTGRES_URL_NON_POOLING`.
+   - The table (`gc_state`) is created automatically on first write — nothing to set up.
+4. **Redeploy** (Deployments → ⋯ → Redeploy) so the functions pick up the env var + install the driver.
 
 That's it. Open the deployed URL:
 - The banner reads live data from the store.
@@ -41,10 +46,11 @@ Open `index.html` directly (file://) and it still works as the session-only tool
 nothing stored, uploads live until you reload. Handy for a quick local check.
 
 ## Notes
-- If you deploy **without** the Redis store, the site loads but runs in session-only mode
-  (the `/api/state` call reports `configured:false`). Add the store + redeploy to enable
-  persistence.
+- If you deploy **without** the database, the site loads but runs in session-only mode
+  (the `/api/state` call reports `configured:false`). Add Neon + redeploy to enable persistence.
+- **Free & no credit card:** Neon's free tier is plenty for this (state is one small JSON row).
+  This replaced Upstash/Vercel-KV, which now requires a paid Marketplace plan.
 - The baked registry in `index.html` (13 PROD partners) is the default; anything added via
   **＋ Partner** is stored server-side and overrides/extends it.
-- Storage is a single JSON document in Redis — fine for this data size (thousands of tiny
-  daily rows). If it ever grows huge, move `rows` to a Postgres table; the API shape stays the same.
+- Storage is a single JSON row (`gc_state`) in Postgres — fine for this data size (thousands of
+  tiny daily rows). If it ever grows huge, split `rows` into their own table; the API shape stays the same.

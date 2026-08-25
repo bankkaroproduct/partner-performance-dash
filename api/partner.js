@@ -1,6 +1,6 @@
 // POST   /api/partner  { pid, name, status }  -> upsert into registry
 // DELETE /api/partner?pid=123               -> remove from registry
-const { configured, getState, setState, readBody } = require('../_lib/redis');
+const { configured, getState, setState, readBody } = require('../_lib/store');
 
 module.exports = async (req, res) => {
   try {

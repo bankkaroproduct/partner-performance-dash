@@ -1,5 +1,5 @@
 // DELETE /api/batch?id=b123  -> remove an upload batch and all rows it contributed
-const { configured, getState, setState } = require('../_lib/redis');
+const { configured, getState, setState } = require('../_lib/store');
 
 module.exports = async (req, res) => {
   try {

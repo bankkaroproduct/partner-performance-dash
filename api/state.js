@@ -1,5 +1,5 @@
 // GET /api/state  -> { ok, configured, partners, rows:[...], batches:[...] }
-const { configured, getState } = require('../_lib/redis');
+const { configured, getState } = require('../_lib/store');
 
 module.exports = async (req, res) => {
   try {

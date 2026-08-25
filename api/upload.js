@@ -1,6 +1,6 @@
 // POST /api/upload  { batchId, files:[names], rows:[{date,pid,clicks,exits,cardouts,topcard}] }
 // Upserts daily rows (dedupe key = date|pid, last wins), records the upload as a batch.
-const { configured, getState, setState, readBody } = require('../_lib/redis');
+const { configured, getState, setState, readBody } = require('../_lib/store');
 
 module.exports = async (req, res) => {
   try {
