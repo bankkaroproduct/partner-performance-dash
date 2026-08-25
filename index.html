@@ -416,8 +416,9 @@ function classify(objs){
   if(!objs.length)return'unknown';
   const keys=Object.keys(objs[0]).map(k=>k.toLowerCase().trim());
   const has=k=>keys.includes(k);
-  if(has('click_id')&&has('publisher_id'))return'clicks';
   if(has('clean_exit')||(has('pid')&&has('current_status')))return'apps';
+  // clicks: either the classic export (click_id) or the alt Trackier export (id), both with publisher_id + created
+  if(has('publisher_id')&&(has('click_id')||has('id'))&&has('created'))return'clicks';
   if((has('card outs')||has('applications'))&&has('pid'))return'master';
   return'unknown';
 }
@@ -439,7 +440,7 @@ function rebuildAll(){
   const masters=[];
   FILES.forEach(f=>{
     if(f.kind==='clicks'){
-      f.objs.forEach(o=>{const r=lc(o);const id=String(r['click_id']||'').trim().toLowerCase();if(!id)return;
+      f.objs.forEach(o=>{const r=lc(o);const id=String(r['click_id']||r['id']||'').trim().toLowerCase();if(!id)return;
         clickMap.set(id,{pid:String(r['publisher_id']||'').trim(),name:String(r['publisher_name']||'').trim(),day:String(r['created']||'').slice(0,10)});});
     } else if(f.kind==='apps'){
       f.objs.forEach((o,i)=>{const r=lc(o);const key=f.id+':'+(r['application_id']||('row'+i));
@@ -563,7 +564,7 @@ function readDrop(fileList){
   .then(list=>{
     const cMap=new Map(),aMap=new Map(),names=[],masters=[]; let ai=0;
     list.forEach(({name,objs})=>{names.push(name);const kind=classify(objs);
-      if(kind==='clicks')objs.forEach(o=>{const r=lc(o);const id=String(r['click_id']||'').trim().toLowerCase();if(id)cMap.set(id,{pid:String(r['publisher_id']||'').trim(),name:String(r['publisher_name']||'').trim(),day:String(r['created']||'').slice(0,10)});});
+      if(kind==='clicks')objs.forEach(o=>{const r=lc(o);const id=String(r['click_id']||r['id']||'').trim().toLowerCase();if(id)cMap.set(id,{pid:String(r['publisher_id']||'').trim(),name:String(r['publisher_name']||'').trim(),day:String(r['created']||'').slice(0,10)});});
       else if(kind==='apps')objs.forEach(o=>{const r=lc(o);aMap.set('a'+(ai++),{pid:String(r['pid']||'').trim(),day:String((r['decision_date']||r['application_date'])||'').slice(0,10),card:String(r['card_name']||'').trim(),status:String(r['current_status']||'').trim(),hex:hex24(r['clean_exit'])});});
       else masters.push(...objs);
     });
