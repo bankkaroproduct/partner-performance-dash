@@ -546,16 +546,20 @@ function readDrop(fileList){
       else if(kind==='apps')objs.forEach(o=>{const r=lc(o);aMap.set('a'+(ai++),{pid:String(r['pid']||'').trim(),day:String((r['decision_date']||r['application_date'])||'').slice(0,10),card:String(r['card_name']||'').trim(),status:String(r['current_status']||'').trim(),hex:hex24(r['clean_exit'])});});
       else masters.push(...objs);
     });
+    const clickN=cMap.size, appN=aMap.size;
     let rows=computeDailyRows(cMap,aMap);
     masters.forEach(o=>{const r=lc(o);const date=String((r['date']||r['week'])||'').slice(0,10);const pid=String(r['pid']||'').trim();
       if(date&&pid)rows.push({date,pid,clicks:+(r['clicks']||0),exits:+(r['exits']||r['clicks']||0),cardouts:+((r['card outs']!==undefined?r['card outs']:r['applications'])||0),topcard:r['top card']||'-'});});
-    return {rows,names};
+    return {rows,names,clickN,appN,masterN:masters.length};
   });
 }
 
 async function handleDrop(fileList){
   if(serverOn){
-    const {rows,names}=await readDrop(fileList);
+    const {rows,names,clickN,appN,masterN}=await readDrop(fileList);
+    if(appN>0 && clickN===0 && !masterN){
+      alert('This upload has only the application/redshift file — no click export in the same upload, so Card Outs can’t be matched (they’re matched by click_id).\n\nRe-upload the CLICK export and the application export TOGETHER in one go.');
+    }
     const batchId='b'+Date.now()+'-'+Math.floor(Math.random()*1e6);
     await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({batchId,files:names,rows})});
     await loadServer();
