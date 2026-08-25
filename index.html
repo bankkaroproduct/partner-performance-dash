@@ -74,7 +74,7 @@
   .addform input,.addform select{font-family:var(--sans);font-size:13px;color:var(--ink);padding:9px 11px;border-radius:9px;border:1px solid var(--line2);background:var(--panel)}
   .addform input#afPid{width:110px}
   .addform input#afName{flex:1;min-width:160px}
-  .filelog{display:none;margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);overflow:hidden}
+  .filelog{display:none;margin:18px 0 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);overflow:hidden}
   .filelog.show{display:block}
   .filelog .fl-h{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:11px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
   .filelog .fl-clear{border:1px solid var(--line2);background:transparent;color:var(--muted);font-size:11px;font-weight:600;padding:4px 9px;border-radius:8px;cursor:pointer}
@@ -133,7 +133,7 @@
   .tablescroll{overflow-x:auto}
   table{border-collapse:collapse;width:100%;font-size:13px;min-width:940px}
   th,td{padding:12px 13px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
-  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:nth-child(4),td:nth-child(4),td:last-child,th:last-child{text-align:left}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:nth-child(4),td:nth-child(4){text-align:left}
   thead th{position:sticky;top:0;background:var(--panelhi);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);cursor:pointer;user-select:none;z-index:1}
   thead th:hover{color:var(--ink)}
   thead th .arrow{opacity:.35;font-size:9px}
@@ -222,8 +222,6 @@
     <button class="btn" id="afCancel">Cancel</button>
   </div>
 
-  <div id="fileLog" class="filelog"></div>
-
   <section id="empty" class="show">
     <div class="drop" id="drop">
       <div class="ic">📄</div>
@@ -280,6 +278,8 @@
       <div class="chartbox"><div id="chartHolder"></div><div id="chartLegend"></div></div>
     </div>
   </section>
+
+  <div id="fileLog" class="filelog"></div>
 
   <footer>Great.cards · internal · v1 · thresholds tunable in file header</footer>
 </div>
@@ -725,7 +725,7 @@ function render(){
 const COLS=[
   {key:'flag',label:'Flag'},{key:'name',label:'Partner'},{key:'pid',label:'PID'},{key:'status',label:'Status'},
   {key:'clicks',label:'Clicks',num:true},{key:'exits',label:'Exits',num:true},{key:'cardouts',label:'Card Outs',num:true},
-  {key:'clickCard',label:'Click→CardOut %',num:true},{key:'pop',label:'Δ %',num:true},{key:'topcard',label:'Top Card'},
+  {key:'clickCard',label:'Click→CardOut %',num:true},{key:'pop',label:'Δ %',num:true},
 ];
 function popWordShort(){return gran==='month'?'MoM':gran==='week'?'WoW':'Δ';}
 function renderTable(data){
@@ -755,7 +755,7 @@ function renderTable(data){
       <td><span class="statusbadge st-${r.status}">${r.status}</span></td>
       <td class="num">${fmtInt(r.clicks)}</td><td class="num">${fmtInt(r.exits)}</td><td class="num cardout">${fmtInt(r.cardouts)}</td>
       <td class="num">${fmtPct(r.clickCard)}</td>
-      <td class="num delta ${dc}">${dt}</td><td>${cleanTop(r.topcard)}</td></tr>`;
+      <td class="num delta ${dc}">${dt}</td></tr>`;
   }).join('');
   document.querySelectorAll('#tbody tr[data-pid]').forEach(tr=>tr.addEventListener('click',()=>toggleDetail(tr)));
 }
@@ -768,11 +768,11 @@ function toggleDetail(tr){
   const span=PERIODS.slice(Math.max(0,idx-5),idx+1);
   const body=span.map(p=>{const a=aggregate(pid,p);if(!a)return'';
     return `<tr><td>${periodLabel(p)}${p===curPeriod?' <b>(current)</b>':''}</td><td style="text-align:left">${a.status}</td>
-    <td>${fmtInt(a.clicks)}</td><td>${fmtInt(a.exits)}</td><td>${fmtInt(a.cardouts)}</td><td>${fmtPct(pct(a.cardouts,a.clicks))}</td><td style="text-align:left">${cleanTop(a.topcard)}</td></tr>`;}).join('');
+    <td>${fmtInt(a.clicks)}</td><td>${fmtInt(a.exits)}</td><td>${fmtInt(a.cardouts)}</td><td>${fmtPct(pct(a.cardouts,a.clicks))}</td></tr>`;}).join('');
   const det=document.createElement('tr');det.className='detail';
   det.innerHTML=`<td colspan="${COLS.length}"><div class="histwrap">
     <div class="htitle">${aggregate(pid,curPeriod)?.name||pid} · recent ${span.length} ${gran==='month'?'month':'period'}(s)</div>
-    <table class="hist"><thead><tr><th>Period</th><th style="text-align:left">Status</th><th>Clicks</th><th>Exits</th><th>Card Outs</th><th>Click→CardOut</th><th style="text-align:left">Top Card</th></tr></thead><tbody>${body}</tbody></table>
+    <table class="hist"><thead><tr><th>Period</th><th style="text-align:left">Status</th><th>Clicks</th><th>Exits</th><th>Card Outs</th><th>Click→CardOut</th></tr></thead><tbody>${body}</tbody></table>
   </div></td>`;
   tr.after(det);
 }
