@@ -822,7 +822,7 @@ function niceMax(v){if(v<=0)return 10;const p=Math.pow(10,Math.floor(Math.log10(
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function renderChart(){
   const holder=document.getElementById('chartHolder'),legend=document.getElementById('chartLegend');
-  const W=Math.max(holder.clientWidth||760,320),H=340,padL=46,padR=16,padT=16,padB=34;
+  const W=Math.max(holder.clientWidth||760,320),H=340,padL=46,padR=48,padT=16,padB=34;
   const plotW=W-padL-padR,plotH=H-padT-padB;
   // chart always shows the full period axis (not limited to curPeriod)
   const axis=PERIODS;
@@ -837,26 +837,33 @@ function renderChart(){
     series=allPids().map((pid,i)=>({name:aggregate(pid,PERIODS[PERIODS.length-1])?.name||pid,color:PALETTE[i%PALETTE.length],plain:PALETTE[i%PALETTE.length],
       data:axis.map(p=>{const a=aggregate(pid,p);return a?a.cardouts:null;})}));
   }
-  const allVals=series.flatMap(s=>s.data).filter(v=>v!==null);
-  const yMax=niceMax(Math.max(1,...allVals)),n=axis.length;
-  const X=i=>n===1?padL+plotW/2:padL+i*plotW/(n-1), Y=v=>padT+plotH-(v/yMax)*plotH;
+  // Per-series scaling: in Totals mode, Card Outs (tiny vs clicks) get their OWN right axis
+  const dual = chartMode==='total' && series.length===2;
+  const leftMax  = niceMax(Math.max(1, ...series[0].data.filter(v=>v!==null)));
+  const rightMax = dual ? niceMax(Math.max(1, ...series[1].data.filter(v=>v!==null)))
+                        : niceMax(Math.max(1, ...series.flatMap(s=>s.data).filter(v=>v!==null)));
+  const n=axis.length;
+  const X=i=>n===1?padL+plotW/2:padL+i*plotW/(n-1);
+  const Y=(v,si)=>padT+plotH-(v/((dual && si===1)?rightMax:leftMax))*plotH;
   let grid='';const ticks=4;
-  for(let t=0;t<=ticks;t++){const val=yMax*t/ticks,y=Y(val);
+  for(let t=0;t<=ticks;t++){const y=padT+plotH-(t/ticks)*plotH;
     grid+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.06)"/>`;
-    grid+=`<text x="${padL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end" fill="#5c6678" font-size="10">${fmtInt(Math.round(val))}</text>`;}
+    grid+=`<text x="${padL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end" fill="#5c6678" font-size="10">${fmtInt(Math.round(leftMax*t/ticks))}</text>`;
+    if(dual) grid+=`<text x="${W-padR+8}" y="${(y+3.5).toFixed(1)}" text-anchor="start" fill="#ff7bb0" font-size="10">${fmtInt(Math.round(rightMax*t/ticks))}</text>`;}
   let xlab='';axis.forEach((p,i)=>{const t=gran==='month'?periodLabel(p):p.slice(5);xlab+=`<text x="${X(i).toFixed(1)}" y="${H-12}" text-anchor="middle" fill="#5c6678" font-size="10">${esc(t)}</text>`;});
   let paths='';
-  series.forEach(s=>{
-    const pts=s.data.map((v,i)=>v===null?null:[X(i),Y(v)]);
+  series.forEach((s,si)=>{
+    const pts=s.data.map((v,i)=>v===null?null:[X(i),Y(v,si)]);
     const seg=[];let cur=[];pts.forEach(p=>{if(p)cur.push(p);else{if(cur.length)seg.push(cur);cur=[];}});if(cur.length)seg.push(cur);
     seg.forEach(g=>{const d=g.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
       paths+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;});
     s.data.forEach((v,i)=>{if(v===null)return;
-      paths+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3.4" fill="${s.plain}" stroke="#0b0f17" stroke-width="1.5"><title>${esc(s.name)} · ${esc(periodLabel(axis[i]))}: ${fmtInt(v)}</title></circle>`;});
+      paths+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(v,si).toFixed(1)}" r="3.4" fill="${s.plain}" stroke="#0b0f17" stroke-width="1.5"><title>${esc(s.name)} · ${esc(periodLabel(axis[i]))}: ${fmtInt(v)}</title></circle>`;});
   });
   holder.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block">${grid}${paths}${xlab}</svg>`;
+  const axisNote = dual ? ' · <span style="color:#5c6678">Clicks = left axis, Card Outs = right axis</span>' : '';
   legend.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:10px">'+
-    series.map(s=>`<span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#8792a6"><span style="width:10px;height:10px;border-radius:50%;background:${s.plain}"></span>${esc(s.name)}</span>`).join('')+'</div>';
+    series.map(s=>`<span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#8792a6"><span style="width:10px;height:10px;border-radius:50%;background:${s.plain}"></span>${esc(s.name)}</span>`).join('')+axisNote+'</div>';
 }
 let _rt;window.addEventListener('resize',()=>{clearTimeout(_rt);_rt=setTimeout(()=>{if(RAW.length)renderChart();},150);});
 document.getElementById('tgTotal').addEventListener('click',()=>{chartMode='total';setToggle();renderChart();});
