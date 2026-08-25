@@ -131,7 +131,9 @@
   .panel h2 .note{font-size:11.5px;color:var(--muted);font-weight:500;font-family:var(--sans)}
 
   .tablescroll{overflow-x:auto}
-  table{border-collapse:collapse;width:100%;font-size:13px;min-width:940px}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:1120px}
+  td.spark{padding:6px 13px;width:120px}
+  td.spark svg{opacity:.9}
   th,td{padding:12px 13px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
   th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:nth-child(4),td:nth-child(4){text-align:left}
   thead th{position:sticky;top:0;background:var(--panelhi);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);cursor:pointer;user-select:none;z-index:1}
@@ -222,7 +224,7 @@
     <button class="btn" id="afCancel">Cancel</button>
   </div>
 
-  <section id="empty" class="show">
+  <section id="empty">
     <div class="drop" id="drop">
       <div class="ic">📄</div>
       <h3>Drop your raw exports — the dashboard joins them</h3>
@@ -237,7 +239,7 @@
     </div>
   </section>
 
-  <section id="main">
+  <section id="main" class="show">
     <div class="filterbar">
       <div class="seg" id="granSeg">
         <button data-g="all">All-time</button>
@@ -351,7 +353,26 @@ function ingest(rows){
   document.getElementById('main').classList.add('show');
   buildPeriods(true);render();
 }
-function showEmpty(){document.getElementById('main').classList.remove('show');document.getElementById('empty').classList.add('show');}
+/* Always keep the dashboard visible; when there's no data, render a zeroed state
+   (no separate upload screen — the top-right ⬆ Load files is the upload path). */
+function showEmpty(){ document.getElementById('empty').classList.remove('show'); document.getElementById('main').classList.add('show'); renderEmpty(); }
+function renderEmpty(){
+  const pw=document.getElementById('periodWrap'); if(pw)pw.style.visibility='hidden';
+  document.getElementById('heroLeft').innerHTML=`<div class="hero-lbl">Card Outs</div><div class="hero-num">0</div>
+    <div class="hero-wowrow"><span class="wowpill flat">no data yet</span></div>
+    <div class="spark cap" style="margin-top:16px;color:var(--dim)">Click <b>⬆ Load files</b> (top-right) and drop your click export + application export together.</div>`;
+  document.getElementById('heroRight').innerHTML=`
+    <div class="mini"><div class="k">Active Partners</div><div class="v">0</div><div class="s">Status = Live</div></div>
+    <div class="mini"><div class="k">Total Clicks</div><div class="v">0</div><div class="s">—</div></div>
+    <div class="mini action ok"><div class="k">Needs Action</div><div class="v">0</div><div class="s">flags</div></div>
+    <div class="mini"><div class="k">Click→CardOut</div><div class="v">—</div><div class="s">conversion</div></div>
+    <div class="mini span2"><div class="k">Funnel snapshot</div><div class="funnel"><span class="step">0<small>Clicks</small></span><span class="arw">▸</span><span class="step">0<small>Card Outs</small></span></div></div>`;
+  document.getElementById('tableNote').textContent='no data yet';
+  document.getElementById('theadRow').innerHTML='';
+  document.getElementById('tbody').innerHTML=`<tr><td style="padding:26px 15px;color:var(--muted)">No data yet — click <b>⬆ Load files</b> (top-right) and drop your click export + application export <b>together</b>.</td></tr>`;
+  const holder=document.getElementById('chartHolder'); if(holder)holder.innerHTML='';
+  const lg=document.getElementById('chartLegend'); if(lg)lg.innerHTML='';
+}
 
 /* =====================================================================
    RAW AUTO-JOIN — drop the click export + application export, no prep.
@@ -661,7 +682,8 @@ function computeCurrent(){
     const prev=prevP?aggregate(pid,prevP):null;
     const pop=(prev&&prev.cardouts>0)?(a.cardouts-prev.cardouts)/prev.cardouts*100:null;
     const flag=evalFlag(a,pop);
-    return{...a,clickExit:pct(a.exits,a.clicks),clickCard:pct(a.cardouts,a.clicks),pop,flag,_flagRank:FLAG_ORDER.indexOf(flag)};
+    const clicksPer=(a.cardouts>0&&a.clicks!=null)?a.clicks/a.cardouts:null;
+    return{...a,clickExit:pct(a.exits,a.clicks),clickCard:pct(a.cardouts,a.clicks),clicksPer,pop,flag,_flagRank:FLAG_ORDER.indexOf(flag)};
   }).filter(Boolean);
 }
 
@@ -683,6 +705,7 @@ function sparkline(vals){
 
 /* ---- render ---- */
 function render(){
+  if(!RAW.length){ renderEmpty(); return; }
   const data=computeCurrent();
   const hasClicks=data.some(r=>r.clicks!=null), hasExits=data.some(r=>r.exits!=null);
   const totClicks=hasClicks?data.reduce((s,r)=>s+(r.clicks||0),0):null;
@@ -725,15 +748,29 @@ function render(){
 const COLS=[
   {key:'flag',label:'Flag'},{key:'name',label:'Partner'},{key:'pid',label:'PID'},{key:'status',label:'Status'},
   {key:'clicks',label:'Clicks',num:true},{key:'exits',label:'Exits',num:true},{key:'cardouts',label:'Card Outs',num:true},
-  {key:'clickCard',label:'Click→CardOut %',num:true},{key:'pop',label:'Δ %',num:true},
+  {key:'clickCard',label:'Click→CardOut %',num:true},{key:'clicksPer',label:'Clicks / Card',num:true},{key:'pop',label:'Δ %',num:true},
+  {key:'spark',label:'Clicks trend',nosort:true},
 ];
 function popWordShort(){return gran==='month'?'MoM':gran==='week'?'WoW':'Δ';}
+/* tiny inline sparkline for a row */
+function miniSpark(vals){
+  const w=104,h=26,pad=3;
+  if(!vals.length) return '';
+  const max=Math.max(...vals,1),min=Math.min(...vals,0),rng=(max-min)||1;
+  const X=i=>vals.length===1?w/2:pad+i*(w-2*pad)/(vals.length-1);
+  const Y=v=>h-pad-((v-min)/rng)*(h-2*pad);
+  const d=vals.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+  const li=vals.length-1;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block"><path d="${d}" fill="none" stroke="#22d3ee" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${X(li).toFixed(1)}" cy="${Y(vals[li]).toFixed(1)}" r="2.2" fill="#ff4d94"/></svg>`;
+}
+function clicksSeries(pid){ return PERIODS.map(p=>{const a=aggregate(pid,p);return a&&a.clicks!=null?a.clicks:0;}); }
 function renderTable(data){
   const thead=document.getElementById('theadRow');
   thead.innerHTML=COLS.map(c=>{const active=(sortKey===c.key||(c.key==='flag'&&sortKey==='_flagRank'));
     const lbl=c.key==='pop'?popWordShort()+' %':c.label;
+    if(c.nosort) return `<th>${lbl}</th>`;
     return `<th data-k="${c.key}" class="${active?'sorted':''}">${lbl} <span class="arrow">${active?(sortDir===1?'▲':'▼'):'▾'}</span></th>`;}).join('');
-  thead.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{
+  thead.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{
     const k=th.dataset.k,realKey=k==='flag'?'_flagRank':k;
     if(sortKey===realKey)sortDir*=-1;else{sortKey=realKey;sortDir=(k==='flag')?1:-1;}
     renderTable(computeCurrent());
@@ -755,7 +792,9 @@ function renderTable(data){
       <td><span class="statusbadge st-${r.status}">${r.status}</span></td>
       <td class="num">${fmtInt(r.clicks)}</td><td class="num">${fmtInt(r.exits)}</td><td class="num cardout">${fmtInt(r.cardouts)}</td>
       <td class="num">${fmtPct(r.clickCard)}</td>
-      <td class="num delta ${dc}">${dt}</td></tr>`;
+      <td class="num" title="Clicks needed per card out (lower = better)">${r.clicksPer==null?'—':fmtInt(Math.round(r.clicksPer))}</td>
+      <td class="num delta ${dc}">${dt}</td>
+      <td class="spark">${miniSpark(clicksSeries(r.pid))}</td></tr>`;
   }).join('');
   document.querySelectorAll('#tbody tr[data-pid]').forEach(tr=>tr.addEventListener('click',()=>toggleDetail(tr)));
 }
@@ -835,6 +874,7 @@ document.getElementById('prevPeriod').addEventListener('click',()=>{const i=PERI
 document.getElementById('nextPeriod').addEventListener('click',()=>{const i=PERIODS.indexOf(curPeriod);if(i<PERIODS.length-1){curPeriod=PERIODS[i+1];buildPeriods(false);render();}});
 
 /* boot: on Vercel use the shared backend; as a local file (or if backend not set up) run session-only */
+renderEmpty(); // show the dashboard immediately (zeroed) — no upload screen
 if(HTTP){ loadServer().then(on=>{ if(!on) tryLocal(); }); }
 else { setStoreBadge('local'); tryLocal(); }
 </script>
