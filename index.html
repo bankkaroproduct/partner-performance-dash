@@ -48,6 +48,11 @@
   .btn.primary{background:linear-gradient(135deg,var(--brand1),var(--brand2));border:none;box-shadow:0 6px 18px rgba(255,77,148,.35)}
   .btn.primary:hover{filter:brightness(1.08)}
   input[type=file]{display:none}
+  .storebadge{font-size:11px;font-weight:700;padding:6px 11px;border-radius:20px;display:none;align-items:center;gap:6px;white-space:nowrap}
+  .storebadge.show{display:inline-flex}
+  .storebadge.on{background:rgba(46,230,166,.14);color:var(--green)}
+  .storebadge.off{background:rgba(255,171,46,.16);color:var(--amber)}
+  .storebadge.local{background:rgba(135,146,166,.14);color:#aab4c6}
 
   /* control bar: time-view filter + period picker */
   .filterbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
@@ -200,6 +205,7 @@
       </div>
     </div>
     <div class="controls">
+      <span id="storeBadge" class="storebadge"></span>
       <button class="btn" id="reloadBtn" title="Refresh data">↻ Refresh</button>
       <button class="btn" id="addPartnerBtn">＋ Partner</button>
       <label class="btn primary" for="fileInput">⬆ Load files</label>
@@ -482,6 +488,14 @@ const HTTP = location.protocol==='http:'||location.protocol==='https:';
 let serverOn=false, serverBatches=[];
 let REG = Object.assign({}, PARTNERS);   // baked registry ∪ server registry
 
+function setStoreBadge(kind){
+  const el=document.getElementById('storeBadge'); if(!el)return;
+  el.className='storebadge show '+kind;
+  el.textContent = kind==='on' ? '● Shared storage on' : kind==='off' ? '● Not saving — connect DB' : '● Local file · not saved';
+  el.title = kind==='on' ? 'Uploads are saved and shared with everyone on this link.'
+    : kind==='off' ? 'This deployment has no database connected — uploads persist only until reload. Add Neon + redeploy.'
+    : 'Opened as a local file — uploads live only in this tab.';
+}
 async function loadServer(){
   try{
     const r=await fetch('/api/state',{cache:'no-store'}); const j=await r.json();
@@ -489,9 +503,10 @@ async function loadServer(){
     REG = Object.assign({}, PARTNERS, j.partners||{});
     serverBatches = j.batches||[];
     if(serverOn){ if((j.rows||[]).length) ingest(dailyToMaster(j.rows)); else showEmpty(); }
+    setStoreBadge(serverOn?'on':'off');
     renderFileLog();
     return serverOn;
-  }catch(e){ serverOn=false; return false; }
+  }catch(e){ serverOn=false; setStoreBadge('off'); return false; }
 }
 
 /* read one drop's files, join them → {rows:[compact daily], names:[]} */
@@ -790,5 +805,5 @@ document.getElementById('nextPeriod').addEventListener('click',()=>{const i=PERI
 
 /* boot: on Vercel use the shared backend; as a local file (or if backend not set up) run session-only */
 if(HTTP){ loadServer().then(on=>{ if(!on) tryLocal(); }); }
-else { tryLocal(); }
+else { setStoreBadge('local'); tryLocal(); }
 </script>
